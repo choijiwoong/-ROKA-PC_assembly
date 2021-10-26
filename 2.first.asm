@@ -29,6 +29,12 @@ _asm_main:
 	call print_string
 	
 	call read_int;read integeral
+	mov [input1], eax;save to input1
+	
+	mov eax, prompt2;print prompt2
+	call print_string
+	
+	call read_int;get int
 	mov [input2], eax;save to input2
 	
 	mov eax, [input1];eax=input1's dword
