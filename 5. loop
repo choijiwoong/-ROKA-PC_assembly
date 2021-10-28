@@ -1,0 +1,67 @@
+<46~50>
+	[loop형]
+1.	80x86은 for같은 명령을 위해 LOOP(ecx--, !=0이면 라벨로 분기), LOOPE&LOOPX(ecx--, ecx!=0이고 ZF=1이면 분기), LOOPNE&LOOPNZ(ecx--, ecx!=0이고 ZF=0이면 분기)와 같은 몇가지 명령을 지원하는데, 이는 한개의 인자만 가지며 코드 라벨이다.
+	sum=0;
+	for(i=10; i>0; i--)
+		sum+=i;
+	다음의 pseudo code는 아래와 같이 바뀐다.
+	
+	mov eax, o;eax는 합
+	mov ecx, 10; ecx는 i
+loop_start:
+	add eax, ecx
+	loop loop_start
+
+	[보통의 제어 구조 번역]
+2.	<if>
+
+	if(condition)
+		then_block;
+	else
+		else_block;
+	다음의 pseudo code는 아래와 같이 바뀐다
+	
+	;code to set flags
+	jxx else_block;choose xx
+	;[then_block  part]
+	jmp endif
+else_block:
+	;[else_block part]
+endif:
+	
+	만약 else가 없다면 else_block을 endif로 바꿀 수 있다.
+	;code to set flags
+	jxx endif
+	;then_block part
+endif:
+	
+	참이면 순차적으로 실행 후 else다음 endif로 jmp, 거짓이면 else_block으로 ㄱㄱ
+	
+	<while>
+	
+	while(condition){
+		body of loop;
+	}
+	다음의 psudo code는 아래와 같이 바뀐다
+
+while:
+	;code to set flags based on condition
+	jxx endwhile;if false, branch to endwhile
+	;body of loop part
+	jmp while
+endshile:
+
+	<do while>
+	
+	do{
+		body of loop;
+	}while (condition);
+	다음의 pseudo code는 아래와 같이 바뀐다.
+	
+do:
+	;body of loop part
+	;set flag register by condition
+	jxx do
+	
+	[소수찾기 프로그램]
+3.	
