@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 int main(){
-	unsigned short word=0x1234;	//sizeof(short)==2¶ó »ý°¢
+	unsigned short word=0x1234;	//sizeof(short)==2Â¶Ã³ Â»Ã½Â°Â¢
 	unsigned char *p=(unsigned char *)&word;
 	if(p[0]==0x12)
 		printf("Big Endian Machine!\n");
