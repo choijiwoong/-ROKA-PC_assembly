@@ -1,4 +1,4 @@
-<51~53> 8 4 2 1 오늘 목표는 68?ㅋㅋ
+<51~56> 8 4 2 1 오늘 목표는 68?ㅋㅋ
 [비트 연산]
 	[논리 쉬프트]
 1.	쉬프트는 왼쪽(최상위비트 방향)이나 오른쪽(최하위비트 방향)으로 일어날 수 있는데, 언제나 새롭게 나오는 비트는 0이다.
@@ -93,21 +93,20 @@ count_loop:
 10.	CL레지스터를 이용하여 데이터의 임의 비트 수정이 가능하다. 아래의 코드에서 BH에 세트될 비트의 위치가 저장되어 있다.
 	1) 임의의 비트 1로 만들기
 	mov cl, bh	;make target  	(3)
-	mov ebx, 1	;for make 1		(1111)
+	mov ebx, 1	;for make 1		(0001)
 	shl ebx, cl	;shift CL times	(1000)
 	or eax, ebx ;or.			(eax or 1000) to turn on bit
 	
 	2) 임의의 비트 0으로 만들기
 	mov cl, bh;		(2)
-	mov ebx, 1		(1111)
-	shl ebx, cl		(1100)
-	not ebx			(0011)????2번과 3번이 바뀌는데
-	;대충 shr ebx, 1 이런꼴로 사이즈에 따라 만들면 될거같은데 sizeof가 있는것도 아니곰.. 레지마다 size가 정해져있으려남 32bit라넴. 우선 패수
-	and eax, ebx	(eax and 0011) to turn off bit
+	mov ebx, 1		(0001)
+	shl ebx, cl		(0100)
+	not ebx			(1011)
+	and eax, ebx	(eax and 1011) to turn off bit
 	
 	3) 임의의 비트 반전시키기_XOR을 이용하자!
 	mov cl, bh	(3)
-	mov ebx, 1	(1111)
+	mov ebx, 1	(0001)
 	shl ebx, cl	(1000)
 	xor eax, ebx(eax xor 1000)
 	
