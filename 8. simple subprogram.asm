@@ -20,16 +20,26 @@ _asm_main:
 	mov eax, prompt1
 	call print_string;"Enter a number: "
 	
-	mov ebx, input1;save storage for input1 to ebx
-	mov ecx, ret1;save return address to ecx
-	jmp short get_int;read int
-ret1:
-	mov eax, prompt2
-	call print_string;"Enter another number: "
+	;***version-1***
+	;mov ebx, input1;save storage for input1 to ebx
+	;mov ecx, ret1;save return address to ecx
+	;jmp short get_int;read int
+;ret1:
+	;mov eax, prompt2
+	;call print_string;"Enter another number: "
+	
+	;mov ebx, input2
+	;mov ecx, $+7;ecx=current_address(column)+7; line.34 (더하는 기준이 뭔지 잘 모르겠지만, 이곳부터 jmp의 dubprogram포함 총 line이라고 생각해야겠다)
+	;jmp short get_int
+	;***version-1***
+	
+	;***version-2***
+	mov ebx, input1
+	call get_int;push
 	
 	mov ebx, input2
-	mov ecx, $+7;ecx=current_address(column)+7; line.34 (더하는 기준이 뭔지 잘 모르겠지만, 이곳부터 jmp의 dubprogram포함 총 line이라고 생각해야겠다)
-	jmp short get_int
+	call get_int
+	;***version-2***
 	
 	mov eax, [input1]
 	add eax, [input2]
@@ -60,7 +70,25 @@ ret1:
 ;	ecx-address of command will return
 ;p.s:
 ;	value of eax will be removed
+
+;***version-1***
+;get_int:
+	;call read_int
+	;mov [ebx], eax;save value to ebx
+	;jmp ecx;return to called location in ecx
+;***version-1***
+
+;***version-2***
 get_int:
 	call read_int
-	mov [ebx], eax;save value to ebx
-	jmp ecx;return to called location in ecx
+	mov [ebx], eax
+	ret;pop
+;***version-2***
+
+;***wrong***
+get_int:
+	call read_int
+	mov [ebx], eax
+	push eax
+	ret;pop eax not return address! because of stack structure
+;***wrong***
