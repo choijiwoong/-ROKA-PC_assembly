@@ -1,0 +1,194 @@
+<92~105> 예제부터
+	[data와 bss세그먼트에서 배열 정의하기]
+1.	초기화된 배열을 data세그먼트에 정의하기 위해 db, dw등의 지시어를 사용하면 된다. NASM은 TIMES라는 유용한 지시어를 제공한다.
+	
+	segment .daa
+	a1 dd 1,2,3,4,5,6,7,8,9,10 ;double word
+	a2 dw 0,0,0,0,0,0,0,0,0,0 ; word
+	a3 times 10 dw 0; same work with a2
+	a4 times 200 db 0
+	   times 100 db 1
+	   
+	초기화 되지 않은 배열을 bss세그먼트에 정의하기 위해선 resb, resw등의 지시어를 사용하면 된다. 얼만큼의 메모리를 지정할지를 피연산자로 전달해주자.
+	   
+	segment .bss
+	a5 resd 10; not initialized 10 double word array
+	a6 resw  100; not initialized 10 word array
+	
+	[배열을 스택에서의 지역변수로 정의하기]
+2.	스택에 직접적으로 지역 배열 변수를 정의할 수 없기에 필요한 바이트수를 계산하며 ESP로부터 뺴면 된다.(ENTER사용 가능)
+	이때 ESP를 항상 더블워드 경계(Double word boundary)에 놓이게 하기 위해 사용하지 않은 부분도 배열하여 바이트의 합은 항상 4의 배수로 맞춰 메모리 접근을 향상시켜야 한다.
+	
+	[배열의 원소에 접근하기]
+3.	array1 db 5,4,3,2,1;bite
+	array2 dw 5,4,3,2,1;word
+	
+	mov al, [array1]; al=array1[0]
+	mov al, [array1+1]; al=array1[1]
+	mov [array1+3], al; array1[3]=al
+	mov ax, [array2]; ax=array2[0]
+	mov ax, [array2+2]; ax=array2[1] (NOT ARRAY2[2]!!!!) 워드는 2바이트를 차지한다!!
+	mov [array2+6], ax; array2[3]=ax
+	mov ax, [array2+1]; !!!! array2[0]의 1바이트와 array2[1]의 1바이트를 읽을 것이기에 조심해야한다. asm에는 프로그래머가 얼만큼 가야하는지 모든 것을 고려해야한다.
+	
+	<열 원소의 합구하기_버전1>
+	mov ebx, array1; ebx=array1's address
+	mov dx, 0; for sum
+	mov ah, 0; ***initialization because we will use ax not only al. we will add by ax for matching size of add
+	mov ecx,5
+lp:
+	mov al, [ebx]; al=*ebx
+	add dx, ax; sum+=ax(***not al!!! because add's 피연산자의 크기는 동일해야한다. 또한 합이 1바이트에 들어가이에 커질 수 있기에 dx를 이용하여 최대 65,535까지 저장.)
+	inc ebx;next element
+	loop lp; ecx--, ecx!=0이면 분기
+	
+	<배열 원소들의 합 구하기_버전2>
+	mov ebx, array1
+	mov dx, 0;sum
+	mov ecx, 5
+lp:
+	add dl, [ebx]
+	jnc next;if no carry 94
+	inc dh;carry up. (p.s dx(16bit)=dh(8bit)+dl(8bit))
+next:
+	inc ebx
+	loop lp;ecx--, ecx!=0
+	
+	<배열 원소들의 합 구하기_버전3>
+	mov ebx, array1; address
+	mov dx, 0; sum
+	mov ecx, 5; count
+lp:
+	add dl, [ebx]
+	adc dh, 0; add with carry value! Genius?
+	inc ebx
+	loop lp
+	
+	[좀더 향상된 간접 주소 지정]
+4.	배열에서 간접 주소 지정이 종종 이용되는데, [base reg+factor*index reg+constant]로 널리 쓰인다.
+	base register는 EAX, EBX, ECX, EDX, EBP, ESP, ESI, EDI중에 하나이다.
+	factor(인수)는 1,2,4or8중 하나인데, 1이면 생략된다.
+	index register는 EAX, EBX, ECX, EDX, EBP, ESI, EDI중 하나이다.(ESP는 없다!)
+	constant(상수)는 32비트 상수로, 라벨 혹은 라벨 식(label expression)이 될 수 있다.
+	
+	[다시보는 LEA 명령어]
+5.	LEA는 주소 계산 뿐 아니라 빠른 계산과 같은 다른 목적으로 사용이 가능하다
+	lea ebx, [4*eax +eax]
+	이는 mul을 통해 eax를 5하는 것보다 훨씬 빠르고 쉽다. 다만 괄호안에 들어가는 것이 간접 주소 지정 형태여야함을 명심하자. (고로 위 명령으로 6을 곱할 순 없다???)
+	
+	[다차원 배열]
+6.	다차원 배열도 C컴파일러가 공간을 할당하고, 메모리 상에 연속된 현태로 나타낸다. 이를 행기준(rowwise)표현이라고 하며, C/C++컴파일러가 배열을 표현하는 방법이기도 하다.
+	2차원 배열의 경우 i행의 첫번째 우너소는 2i위치에 있고, j번쨰 열에 위치해있으면 2i+j로 표현이 가능하다. a[3][2]에서.
+	 <x=a[i][j]>
+	mov eax, [ebp-44];ebp-44 is location of i
+	sal eax, 1;i*2 shift로 곱하기연산
+	add eax, [ebp-48];+j
+	mov eax, [ebp+4*eax-40];ebp-40 is address of a[0][0]. it's same to [ebp-40+4*eax]
+	mov [ebp-52], eax;result to ebp-52;x
+	 일반화가 가능한 이유는 x=a[i][j]를 컴파일러가 어셈블리로 x=*(&a[0][0]+2*i+j)로 바꾼다. 걍 같은 식임. 참고로 columnwise표현도 열이 연속적으로 저장되는데, FORTRAN은 열기준 표현법을 이용하는 대표적인 예시이다.
+	
+	int b[4][3][2]의 위치계산 공식은 (3*2)i+2*j+k가 된다. 첫번쨰 차원은 공식에 나타나지 않는다. 이는 더 높은 차원의 공식도 마찬가지이다. 마지막 차원인 Dn은 공식에 나타나지 않는다.
+	
+	[다차원 배열을 C에서 인자로 전달하기]]
+7.	1차원을 제외한 다차어ㅜㄴ 배열은 원소들에 접근하기 위해선 컴파일러에게 첫번째 차원을 제외한 나머지 모든 차원들을 알아야 한다.
+	void f(int a[][]); //error!
+	void f(int a[][2]); //Cool!
+	void f(int *a[]); //? It's pointer's array!
+	void f(int a[][4][3][2]); //Cool!
+	
+	[배열/문자열 명령]
+8.	80x86계열의 프로세서들은 배열들에게만 적용되는 몇가지의 명령을 지원하는데, 문자열 명령(string instruction)이라고 부른다. 이들은 인덱스 레지스터(ESI, EDI)를 사용하여 작업실행 후, 알아서 인덱스 레지스터를 1증가하거나 감소시킨다.
+	플래그 레지스터의 방향 플래그(Direction Flag, DF)를 통해 증감방향을 결정하는데, CLD명령으로 DF를 0으로 하여 증가시킬 수 있고, STD명령으로 DF를 1로하여 감소시킬 수 있다.
+	
+	[메모리에 쓰고 읽기]
+9.	segment .data
+	array1 dd 1,2,3,4,5,6,7,8,9,10
+	
+	segment .bss
+	array2 resd 10
+	
+	segment .text
+		cld;**importance. Df set ZERO
+		mov esi, array1;save to index register_ESI is used to read (SI가 소스 인덱스, DI가 데스티네이션 인덱스였다는걸 기억하자)
+		mov edi, array2;_EDI is used to write
+		mov ecx, 10
+	lp:
+		lodsd
+		stosd;these can be replaced to movsd. 차이점은 EAX가 루프전체에서 사용되느냐 아니냐일 뿐이다.
+		loop lp
+	저장 명령은 어떠한 세그먼트에 쓸지가 DS가 아닌 ES에 의해 결정되는데, 하나의 mov로는 DS를 ES에 직접 대입할 수 없기 때문에 2번의 연산이 필요하다.????? 잘모르겟
+	
+	[REP 명령 접두어]
+10.	80x86은 특별한 명령 접두어 REP로 문자열 명령 위에 사용될 수 있는데, 문자열을 반족하게 한다. ECX로 반복횟수를 세며 9.의 루프를 rep movsd한문장으로 바꿀 수 있다.
+	
+	그리고 배열의 원소를 0으로 바꾸는 또다른 예제도 눈에만 담아두자.
+	segment .bss
+	array resd 10
+	
+	segment .text
+	cld; don't forget!
+	mov edi, array
+	mov ecx, 10
+	xor eax, eax;make eax ZERO
+	rep stosd;stosd [ES:EDI]=EAX. EDI=EDI+-4 ;Set zero(eax) with ++index
+	
+	[비교 문자열 명령]
+11.	REP처럼 문자열 비교명령들과 함께 사용될 수 있는 명령 접두어는 REPE&REPZ(Z세트되는 동안 혹은 최대 ECX까지 반복), REPNE&REPNZ(Z가 Zero인 동안, 최대 ECX까지)가 있다. (&들은 동의어)
+
+	segment .bss
+	array resd 100
+	
+	segment .text
+		cld
+		mov edi, array; array pointer
+		mov ecx, 100; num of elements
+		mov eax, 12; search number
+	lp:
+		scasd; cmp AX, [ES:EDI]. EDI+-4
+		je found;if result is 0, goto found
+		loop lp;if ecx is end,
+	;if not find
+		jmp onward;goto onward
+	found:
+		sub edi, 4;now, edi point 12 in array
+	;if find
+	onward:
+	
+	비교 명령이 비교 결과 때문에 멈췄어도 인덱스 레지스터는 증가되고, ECX는 감소되어있지만, 플래그 레지스터는 반복이 종료되었을 때의 상태를 유지하고 있다. 고로 Z플래그를 이용하여 비교결과때문에 꺼진건지, ECX가 0이되서 꺼진건지 구분이 가능하다. ???
+
+12.	segment .text
+		cld;***importance!
+		mov esi, block1;
+		mov edi, block2
+		mov ecx, size
+		repe cmpsb; cmp ESI, ESI
+		je equal;if result is 0, goto equal
+		
+		jmp onward;if just ecx is done, goto onward
+	equal:
+		
+	onward:
+	
+	위는  메모리 블록의 값이 같은지 확인하는 건데, 서로 다른 바이트를 찾아 중단되었으면 Z가 클리어 되어있을것이기에 분기가 일어나지 않고, ECX가 0이어서 비교가 중단된거면 Z가 Set되어있을것이기에 suqal라벨로 분기할 것이다.???
+	
+	
+	하루하루가 행복하네... 오랜만에 TMIㅋㅋㅋTMI로 무슨 레지스터 이름같네 잠깐 쉬어가며 근황 기록 잠시 하면 아직 근수 격리중이고 나는 2번쨰 퐁당주간...ㅎㅎ
+	진짜 휴가 나갔을 때 나는 분명 열심히 훈련소에서 훈련하고 자대와서 적응 잘 하고 좋은 후임, 좋은 선임이 되기 위해 열심히 노력했었는데 내 방 침대에 눕자마자 너무나도 
+	일상적인 느낌이 들어서, 당장 어제까지만 해도 내가 집에 있었던 것 처럼 똑같은 하루하루 엄마가 밥먹자 하면 네~하고 나가서 밥먹고 집에서 쉬다가 친구 만나고 가족이랑 놀러다니고
+	내 12월부터 5월까지의 6개월이라는 시간이 사라진것만 같아 공허함과 상실감에 사로잡혔었지.. 솔직히 지금 공부 열심히 하는게 어떤 생각과 마음가짐으로 하는 거냐면
+	 일차적으론 재밌지 처음에 django사용해서 웹개발을 할 수 있다는게 신기하고 그래서 태안이형이랑 나영누나랑 말로만 계획해봤던 나 전역하면 해보자한 장애우여행가이드 서비스를
+	prototype을 직접 만들어보자!라고하며 만든게 Osirau였는데, 파이썬에 대한 깊은 지식, API에 대한 깉은 지식이 없으니 매번 만나는 오류를 노가다로 해결해가면서
+	개발을 한다는 느낌은 있지만 새로운걸 알아가고 배워간다는 배움의 즐거움이 없기도하고 나의 무지를 실감해서 군대에서 뭘 만들생각보다는 기초를 닦자 라는 마음으로 언어공부를 시작했지
+	나는 나름 C는 고등학교때부터 해서 친숙하지만 객체지향프로그래밍이 넘지못할 산 같은 장애물처럼 느껴졌는데 정말 고마운 psi님의 C++강좌로 시작을 할 수 있었지. 
+	 처음엔 개인정비시간때는 쉬고 연등시간때만 공부를 해왔었는데 osirau까지만해도. 근데 배우다보니 재미있고 신기하고 더 배우고 싶고 정말 기초를 탄탄하게 닦고 싶어서
+	목표를 체계적으로 잡고 해내려 하다보니 재미있고 성취감있어서 스스로 개인정비때 지금처럼 하게되고 이러한 공부가 하루하루의 원동력이 되고 나에 대한 자신감, 자존감이 되고
+	휴가나갔을 때 느낀 공허함과 상실감을 다시금 더 크게 느끼지 않도록 github에 업로드해서 눈으로 보이게끔 가시화하니 정말 하루하루가 사회에서의 시간만큼이나 보람차고
+	나의 부족한 부분이 매꾸어지는게 하루하루 느껴지니 정말 선순환으로 하루하루가 너무 행복하네.. 지루하게 매일 기상, 일과, 개인정비, 근무, 취침 이었던 내 하루하루에 
+	의지가 생기고 목표가 생기고 야망이 생기고 성취감이 생기고 자신감이 생기고 미래에 대한 확신이 생기고. 정말 군대에서 공부아니면 운동이라도 하라는 말이 격공된다.
+	 차피 지금 상병 2호봉이고 2일뒤면 상병 3호봉인데, 슬슬 하루하루의 초점을 군대가 아닌 사회에 나간 뒤의 내가 되어야 할 때가 된 것 같기도 하고..ㅋㅋ 오늘 목표가 NASM pdf
+	30쪽 보기로 정하고 아침 8시부터 오침깨고 나와서 공부중인데 이렇게 놀아서야 뭔ㅋㅋ 그래도 이런 기록이 추억이 되고 기록이 되고 나의 성장 발자국이 되겠징ㅎ
+	사지방 나의 고정석아닌 고정석?ㅋㅋ 창문엔 신명 앞바다 파도가 정말 이쁘게 밀려오고 중간에 이쁜 커플 한쌍 있는데 오후 4시11분 저녁이 되어가며 하늘에 붉은 색감이 옅게 구름에 걸려있으니
+	진짜 이쁘긴 하다. 제대하고 자유시간 3개월, 혹은 9개월 얼마나가 될 진 모르겠지만 그 시간동안 푹 쉬고 내가 하고싶은 커피공부, 천체공부, 음악할 생각에 벌써 설레네..
+	 김승호 상병님 박경성이 상병님, 효성이, 규민이, 근수 다 좋게 의미있는 1년 6개월 보내었으면 좋겠담....;;
+	 
+	
