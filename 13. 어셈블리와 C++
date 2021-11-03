@@ -1,0 +1,84 @@
+<139~143>
+[어셈블리와 C++]
+	[오버로딩과 이름 맹글링(Name Mangling)]
+1.	C에서 같은이름의 함수를 정의하면 링킹 시 오브젝트 파일에서 동일한 심볼에 두 개의 정의를 찾기에 오류가 발생한다. 
+
+	#include <stdio.h>
+	void f(int x){ printf("%d\n",x); }
+	void f(double x){ printf("%g\n",x);}
+	C++과 C는 동일한 링킹 과정을 거치는데, 함수에 이름 붙여진 라벨을 이름 맹글링(name mangling)이라는 과정을 통해 위와 같은 오류를 피해갈 수 있다.
+	사실 C도 name mangling을 사용하는데, 함수의 이름을 라벨로 바꿀 때 _를 붙이는 것이다.
+	다만 C++는 좀 더 복잡한 name mangling을 사용하여 DJGPP에 의해 위의 C코드의 함수를 단순히 _f가 아닌 _f__Fi와 _f__Fd라벨을 부여받아 링크오류를 피한다.
+	 C++ 표준에 라벨링 기준이 없어 컴파일러 내키는대로 name mangling을 하는데, 볼랜드 C++ㅋㅋ은 위에 함수를 @f$qi. @f$qd 라벨을 부여한다.
+	물론 막정한건 아니고 인자들의 배열 순서와 형의 규칙에 의해 라벨링이되는데, int인자함수는 끝에 i가 붙거나 double인자는 d가 붙거나 하는 것이다.
+	
+	void f(int x, int y, double x); 의 경우
+	DJGPP는 _f__Fiid, 볼랜드는 @f$qiid로 한다. (리턴은 상관없음) 즉, 고유의 특징을 가지는 함수를 오버로딩하는 것이다. C++은 라벨링 과정에서 오버로딩여부를 모르기에 모두 name mangling을 한다.
+
+2.	방식은 약간 다르지만 전역변수의 정의 역시 맹글링한다. 고로 A파일에 a형 전역변수를 B파일에서 b형으로 사용하면 타입에 따라 이름이 다르게 라벨링되어 링커 오류가 발생한다.
+	이러한 C++의 특징은 안전한 링팅(typesafe linking)이라고도 불린다. 이로 일정하지 않은 원형에 대한 오류도 잡을 수 있다.(C는 이거 못함 원형 다르면 디버그 어려움. 컴파일에러는 없는데 알고보니 함수가 이상한값을 넣는 경우)
+	 C++컴파일러는 함수 호출을 분석(parsing)할 때, 인자들의 형을 살펴보아 일치하는 함수를 찾으면 맹글링 규칙으로 CALL하는데, 이는 형 변환도 고려해야하므로 정확히 일치할 필요가 없다.(이는 방대한 범위..)
+	컴파일러 별로 다른 맹글링 규칙을 사용하기에 다른 컴파일러에서 컴파일된 C++코드는 링크가 안될 수도 있기에 우리도 C++코드 컴파일러를 보고 어셈블리에 이름 맹글링 규칙을 적용해야한다.
+
+3.	int printf(const char*, ...);
+	DJGPP는 이를 _printf__FPCce(F function, P pointer ,C const, c char, e ellipsis)로 맹글링 하여 C라이브러리의 printf함수를 호출하지 않을 것이다. 
+
+4.	우리는 C++코드에서 C를 호출할 수 있는데, 즉 C++에서도 보통의 C맹글링 규약을 이용한 어셈블리 코드의 호출도 가능하다.
+	 C++에선 extern 키워드를 이용하여 특정한 함수와 전역변수에 C맹글링 규칙을 적용할 수 있는데, C++용어로 이렇게 선언된 함수와 변수는 C 연계(C linkage)를 사용한다라고 말한다.
+	아래는 C의 printf를 C연계시키기 위한 원형이다.
+	
+	extern "C" int printf(const char*, ...);
+
+	이는 이 함수에 대해 C++ Name Mangling알고 C Name Mangling을 하게 한다. (다만 이 printf는 오버로드되지 않는다. )
+	 또한 편의를 위해 아래와 같이한꺼번에 C연계 시킬 수 있다.
+
+	extern "C"{
+		//origin of function & global variables( C linkage)
+	}
+
+5.	C/C++ 컴파일러에서 작동하는 ANSI C헤더는 아래와 같다.
+
+	#ifdef __cplusplud
+	extern "C" {
+	#endif
+	
+	그리고 하단에 }가 있는데, C++컴파일러는 __cplusplus를 _두개의 매크로로 정의하기에 C++의 경우 헤더 전체를 extern "C"로 감싸고, C면 아무것도 하지 않게 한다. (C컴파일러는 extern "C"를 문법상의 오류로 처리하기에)
+	위와 같은 헤더를 통해 C와 C++에서 모두 돌아가는 어셈블리 루틴을 위한 헤더파일을 작성할 수 있다.
+
+	[레퍼런스(reference)]
+6.	void f(int &x){ x++; }
+	int main(){
+		int y=5;
+		f(y); //&가 없다는거
+		printf("%d\n", y);
+		return 0;
+	}
+	f를 어셈블리로 작성하면 void f(int *xp);가 된다. 그냥 포인터처럼 작동하지만 프로그래머에게 그 사실을 숨길 뿐이다.(파스칼 컴파일러가 var인자를 포인터로 실행하는 것처럼)
+	 오버로딩 연산자 편의를 위해 만들어졌다. 포인터라면 operator +(&a, &b)가 되고, 이를 사용시 &a+&b가 되어야하기에 그냥 a+b가 되게 한 것이다.
+
+	[인라인 함수(inline function)]
+7.	C에서 숫자 제곱 메크로는 #define SQR(x) ((x)*(x)) 였다. 이는 단순히 치환을 하기에 ()로 묶어야 했다. 고로 SQR(x++)과 같은 식은 올바른 값을 얻지 못했다.
+	 매크로들은 단순한 함수의 호출에서 복잡한 함수호출과정을 생략하기 위해 만든 것인데, 존나 단순할 경우 호출이 실행보다 느릴 수 있기 때문이다.
+	인라인 함수는 호출에 관한 부분이 수행하는 코드로 대체된다. 아래와 같다. (x가 ebp-8, y가 ebp-4 가정)
+
+	inline int inline_f(int x){ return x*x; }
+	int f(int x){ return x*x; }
+	int main({
+	 int y, x=5;
+	 y=f(x);
+	 y=inline_f(x);
+	 return 0;
+	}
+
+	y=f(x)부분의 asm은 아래와 같다.
+	push dword [ebp-8]
+	call _f
+	pop ecx
+	mov [ebp-4], eax
+	
+	y=inline_f(x)부분의 asm은 아래와 같다.
+	mov eax, [ebp-8]
+	imul eax, eax
+	mov [ebp-4], eax
+
+	즉, 이 경우 스택에 push되는 인자도 없고, 스택프레임의 생성과 파괴도 없고, 분기도 없고, 코드도 적어 훨씬 빠르다.
