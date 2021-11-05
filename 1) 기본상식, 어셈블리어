@@ -1,0 +1,32 @@
+<1~29>
+	[기본 상식, 키워드]
+1.	최하위 비트 LSB_Least Significant Bit, 최상위 비트 MSB_Most Significant Bit
+2.	nibble(4비트의 이진수), word(2바이트), double word(4바이트), quad word(8바이트), paragraph(16바이트)_B,W,D,Q,T(10바이트)
+3.	8088, 8086: 1MB메모리, 실제모드, 세그먼트 최대 64KB
+	80286: 16MB메모리, 16-bits protected mode, 세그먼트 최대 64KB
+	80386: 4GB메모리, 32-bits protected mode, 세그먼트 최대 4GB, 기존의 16비트 레지스터들 32비트로 확장, 새 16비트 레지스터 FS, GS추가(EX처럼 임시 세그먼트)
+		   명령어 하위 호환성을 위해 XH, XL을 16비트씩으로 바꾸는게 아니라 그대로 두고, EAX가 32비트 레지스터, AX가 하위 16비트레지스터를 가리키게끔 유지하였다.
+		   고로 BP는 EBP 처럼 호환성때매 남겨둔 범용 빼고 모두 확장된 것으로만 사용해야 했다.
+	80486/펜티엄/펜티엄 프로: 연산속도 향상
+	펜티엄 MMX: MMX(MultiMedia eXtendions)명령 추가.
+	펜티엄 II: 펜티엄 프로에 MMX추가
+4.	범용 프로세서는 XH, XL로 나누어 독립적으로 사용가능하며, 산술 연산이나 데이터 이동에 사용
+	색인 레지스터(SI, DI)는 포인터로 쓰이나 범용과 같은 기능도 가능하며, XH, XL분할이 안된다.
+	포인터 레지스터(BP, SP)는 스택의 데이터위치를 가리키기 위해 사용되며, 각각 기준 포인터와 스택 포인터라 부름
+	세그먼트 레지스터(CS, DS, SS, ES)는 코드, 데이타, 스택, 보조 세그먼트이다.
+	명령포인터 레지스터(IP)는 CS와 함께 사용되는데, 다음 실행될 명령의 주소를 저장한다. IP는 CPU에서 명령이 실행되면 자동으로 다음 명령을 가리킨다.
+	FLAG 레지스터
+5.	실제모드에서 20비트의 메모리의 주소를 나타내기 위해 16비트 2개를 사용하는데, 처음 16비트를 실렉터(selector), 두번쨰 16비트를 offset
+6.	세그먼트들이 4KB의 page단위로 나뉘어 작업이 가능. virtual memory에서도 segment가 아닌 page를 기준으로 작업함.
+7.	event's interrpt->find address of handler in 'interrupt vector table'->interrupt handler->retore value of register before interrupt
+
+	[어셈블리어]
+1.	즉시 피연산자(immediate) is in code segment, 묵시적 피연산자(implied)는 INC에 사용되는 1같은 것으로, 정확히 나타나지 않는다.
+2.	directive(지시어)는 어셈블러를 위한 것이다. symbol equ value(no redifinition), %
+3.	L6 dd 1A92h
+	mov al, [L6]
+	L6은 더블워드(4바이트)로 초기화되어있는데, al(8비트)에 mov통래 넣고 있다. 그럼 더블워드의 하위 8비트만이 al에 들어가게 된다. mov의 피연산자는 크기가 같아야 하기 때문이다.
+	이러한 이유로 정확한 라벨을 사용하는데에 집중해야 한다.
+4.	어셈블리 I/O 루틴: print_int, print_char, print_string, print_nl, read_int, read_char (%include "asm_io.inc") 사용은 EAX에 적당한 값을 넣으면 된다.
+	asm_io.inc 디버깅 루틴: dump_regs(구분용 정수), dump_mem(구분용 정수, 출력메모리주소, 주소뒤 출력될 패러그래프수), dump_stack(구분용 정수, EBP아래 출력할 더블워드 수, EBP위에 출력할 더블워드 수), dump_math(구분용 정수)(math copreocessor)
+	
