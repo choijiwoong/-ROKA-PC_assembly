@@ -1,4 +1,4 @@
-<1~29>
+<11~46>
 	[기본 상식, 키워드]
 1.	최하위 비트 LSB_Least Significant Bit, 최상위 비트 MSB_Most Significant Bit
 2.	nibble(4비트의 이진수), word(2바이트), double word(4바이트), quad word(8바이트), paragraph(16바이트)_B,W,D,Q,T(10바이트)
@@ -29,4 +29,62 @@
 	이러한 이유로 정확한 라벨을 사용하는데에 집중해야 한다.
 4.	어셈블리 I/O 루틴: print_int, print_char, print_string, print_nl, read_int, read_char (%include "asm_io.inc") 사용은 EAX에 적당한 값을 넣으면 된다.
 	asm_io.inc 디버깅 루틴: dump_regs(구분용 정수), dump_mem(구분용 정수, 출력메모리주소, 주소뒤 출력될 패러그래프수), dump_stack(구분용 정수, EBP아래 출력할 더블워드 수, EBP위에 출력할 더블워드 수), dump_math(구분용 정수)(math copreocessor)
+5.	코드를 어셈블 할 때 nasm -f object-format test.asm과 같이 ojbect-format으로 coff, elf, obj, win32등 을 넣어줘야하며, 사용할 C컴파일러에 따라 달라진다. (listing-file 스위치 -l은 주어진 이름의 리스트 파일을 생성하라고 명령하는데, 코드가 어떻게 어셈블 되었는지를 보여준다.)
+	C코드를 컴파일 할때는 gcc -c driver.c처럼 링크없이 컴파일만 하게 한다. 
+	목적파일 링크는 gcc -o first driver.o first.o asm_io.o 로 링크하면 된다.
 	
+	[정수의 표현]
+1.	unsigned magnitude의 하나인 one's complement를 구하는 방법은 해당 진수의 가장 큰 값에서 각각의 원소들을 빼나가면 된다.
+	부호비트->1의 보수(부호비트 자동으로 바뀜)->2의 보수(0을 하나로 표현함과 동시에 그만큼의 추가공간 존재). (p.s CPU는 type의 개념이 없기에 16진수 FF가 -1, +255 뭐로 생각될지는 프로그래머가 그 데이터에 사용하는 명령에 따라 달라진다.)
+2.	unsigned의 경우, 정수 AL을 워드 AX로 확장하기 위해선 mov ah, o으로 상위 8비트를 모두 0으로 만들면 된다.
+	AX에서 EAX로 늘릴때는 MOVZX를 사용하여 확장이 가능하다. movzx eax, ax; ax->eax
+	 signed의 경우, CBW(Convert Bite to Word)로 AL->AX, CWD로 AX->DX:AX로 변환이 가능하다.(8086때) 
+	80386에선 CWDE(Change Word to Double word Extended)로 AX->EAX가 가능하다. CDQ는 EAX->EDX:EAX(64bit)으로 확장해준다. MOVSX로 unsigned의 MOVZX와 같은 작업이 signed에서 가능하다.
+	unsigned char uchar=0xFF;
+	signed char schar=0xFF;
+	int a=(int)uchar;//0xFF->0x000000FF
+	int b=(int)schar;//0xFF->0xFFFFFFFF
+3.	char ch=fgetc()의 원형은 int fgetc(FILE*)로 int로 반환하는데, EOF를 반환하기 위함이다. 다만 이 함수는 문자를 반환하기에 char에 담는순간 데이터가 잘리며 EOF가 일반 숫자혹은 문자로 바뀌어 파일 바이트 FF를 읽고있는건지 EOF를 읽는지 모르기에 int 변수로 문자를 받아야 한다.
+
+	[2의 보수의 산술연산]
+1.	add와 sub는 overflow & carry flag를 변경시킨다. 2의 보수 덕분에 signed와 unsigned은 모두 add와 sub를 사용할 수 있다.
+2.	mul(unsigned)&imul(signed), div(unsigned)&idiv(unsigned). destination을 쓰지 않으면 AX, DX:AX. EDX:EAX에 연산결과가 저장된다.
+
+	[확장 정밀도 산술 연산]
+1.	ADC와 SBB를 이용한 확장 정밀도 산술 연산은, 하위를 add로 계산하고 상위를 adc로 계산하여 하위의 carry를 상위 연산에 반영하는 것이다.
+	큰 수의 경우, 여러번 쪼개어 더하므로 loop를 사용할 수 있는데, 첫번째연산은 확장 정밀도 산술 연산이 아닌 일반 연산이 되어야 하므로 첫 번째 loop에서만 CLC(Carry Clear)로 ADC를 ADD처럼 작동하게 하면 된다.
+	
+	[비교]
+1.	cmp vleft, vright-> result of "vleft-vright": [unsigned]0, ZF, CF [signed]SF=OF, ZF, SF!=OF (p.s Zero, Carry, Sign, Overflow)
+
+	[분기(branch instruction)]
+1.	jump_무조건 분기 with SHORT(128byte, use 1 signed bite for displacement), NEAR(3200byte in code segment, use 2 bite for displacement OR anywhere in code segment, use 4byte. WORD JMP NEAR: 2byte, JMP NEAR: 4byte), FAR(different code segment)
+2.	JZ(ZF)&JNZ, JO(OF)&JNO, JS(SF)&JNS, JC(CF)&JNC, JP(PF)&JNP (p.s Parity flag; PF 하위 8비트 수의 홀짝성)
+	
+	if(EAX>=5) //>=의 경우 복잡해짐
+		EBX=1;
+	else 
+		EBX=2;
+	는
+	cmp eax, 5
+	js signon;(SF)
+	jo elseblock;check overflow to minus->plus(OF, SF=0)
+	jmp thenblock(SF=0, OF=0)
+	signon:
+		jo thenblock; sign=1 because of overflow
+	elseblock:
+		mov ebx, 2
+		jmp next
+	thenblock:
+		mov ebx, 1
+	next:
+3.	JE(=), JNE(!=), JL||JNGE & JB||JNAE(<), JLE||JNG & JBE||JNZ(<=), JG||JNLE & JA||JNBE(>), JG||JNLE & JA||JNBE(>), JGE||JNL & JAE||JNB(>=) (p.s Greater&Above 초과, Below&less 미만)
+	signed: greater&less, unsigned: above&below
+	
+	cmp eax, 5
+	jge thenblock
+	mov ebx, 2
+	jmp next
+	thenblock:
+		mov ebx, 1
+	next:
