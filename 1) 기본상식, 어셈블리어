@@ -88,3 +88,74 @@
 	thenblock:
 		mov ebx, 1
 	next:
+	
+	[루프]
+1.	LOOP(ECX!=0, ECX--), LOOPE&LOOPZ(ECX!=0&&ZF, ECX--), LOOPNE,LOOPNX(ECX!=0&&ZF=0, ECX--)
+
+	[if]
+1.		jxx else_block
+		;then_block
+		jmp endif
+	else_block:
+		;else_block
+	endif:
+
+	[while]
+1.	while: 
+		;set FLAGS
+		jxx endwhile
+		;body of loop
+		jmp while
+	endwhile:
+	
+	[do while]
+1.	do:
+		;body of loop
+		;set FLAGS
+		jxx do
+	
+	[비트연산]
+1.	SHL&SHR(논리쉬프트)할 자리수는 상수이거나 CL레지스터의 저장값(ecx의 하위 8비트). unsigned의 mul, div
+	mov ax, 0C123H
+	shl ax,1
+	mov cl, 3
+	shr ax, cl
+2.	SAL&SAR(산술쉬프트)에서 SAR은 부호비트는 shift하지 않음(하위 7비트만 shift). signed의 mul, div
+3.	ROL&ROR(회전쉬프트)사라진 데이터가 반대쪽에 추가. RCL&RCR(회전쉬프트)인데 캐리비트까지 회전되어 AX라면 캐리플래그와 함께 17비트가 회전.
+4.	SHL을 사용하여 EAX비트수 세기
+		mov b1, 0
+		mov ecx, 32
+	count_loop:
+		shl eax, 1
+		jnc skip_inc;not carry flag, skip_int
+		inc bl
+	skip_inc:
+		loop count_loop
+	
+	[불리언 비트 연산]
+1.	inclusive(OR), exclusive(XOR), TEST는 AND연산을 수행하지만 FLAGS만 바꿀 뿐 결과를 보관하지 않는다.(CMP의 sub처럼)
+2.	cl레지스터에 shift하여 임의의 비트수정이 가능하다. 키기: 1을 shift하고 or, 끄기: 1을 shift하고 not하여 and
+	임의의 비트 반전은 1을 shift하고 xor
+
+	[조건 분기 명령을 피하기(speculative execution)]
+1.	SETxx는 특정 경우에 분기를 피할 목적으로 사용하는데, FLAG에 따라 바이트나 메모리의 값을 바꿔준다. SETxx의 조건이 참이면 1, 거짓이면 0이 저장되어 "setz al;ZF면 1이 al에 저장"와 같이 사용한다.
+
+	[C에서 비트연산자 사용하기]
+1.	운영체제 API들은 bit으로 data가 encode된 피연산자를 사용하는 함수를 사용하는데, POSIX 예문은 아래와 같다.
+	struct stat file_stats;
+	stat("foo", &file_stats);
+	chmod("foo", (file_stats.st_mode&S_IOTH)|S_IRUSR);//remove S_IWOTH add S_IRUSR
+	
+	[빅, 리틀 엔디안 표현]
+1.	리틀엔디안을 사용한 CPU표현에는 부수적인 작업이 필요하지 않다. 2바이트 AX의 AH, AL이 CPU에 어떠한 순서로 놓여있는지 모르고, 다른 메모리에 AX를 mov할때, AH를 먼저 옮기든 AL을 먼저 옮기든 옮겨지기만 하면 상관없기에 상관이 없다.
+	이러한 개념이 좀 더 작은 단위의 바이트 내의 각각의 비트들에도 적용이 되는게, 바이트를 옮길 떄 옮겨지기만 하면 되기에 개개의 비트들이 CPU내부에서 어떠한 순서로 놓여있는지 알 방법도 없다.
+	unsigned short word=0x1234;//sizeof(short)==2
+	unsigned char *p=(unsigned char*)&word;//casting to char*
+	if(p[0]==0x12)
+		printf("Big Endian Machine\n");
+	else
+		printf("Little Endian Machine\n");
+2.	엔디안 변환은 htonl(), ntohl()함수나 invert_endian함수를 직접 만들어 개개의 바이트르 역배치하자.
+	80486에는 32비트 레지스터 역순을 위한 bswap edx, 16비트 레지스터를 위한 xchg ah, al(ax의 바이트를 역순으로 재배치)가 존재한다.
+	
+	
