@@ -8,6 +8,7 @@ int main(){
 	printf("Sum integers up to: ");
 	scanf("%d", &n);
 	calc_sum(n, &sum);
+	//sum=calc_sum(n); //get_sum(return version)
 	
 	printf("Sum: %d\n", sum);
 	
