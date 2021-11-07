@@ -1,8 +1,6 @@
-<11~91>
+<11~111>
 [제1장. 시작하기 앞서서]
 	[기본 상식, 키워드]
-1.	최하위 비트 LSB_Least Significant Bit, 최상위 비트 MSB_Most Significant Bit
-2.	nibble(4비트의 이진수), word(2바이트), double word(4바이트), quad word(8바이트), paragraph(16바이트)_B,W,D,Q,T(10바이트)
 3.	8088, 8086: 1MB메모리, 실제모드, 세그먼트 최대 64KB
 	80286: 16MB메모리, 16-bits protected mode, 세그먼트 최대 64KB
 	80386: 4GB메모리, 32-bits protected mode, 세그먼트 최대 4GB, 기존의 16비트 레지스터들 32비트로 확장, 새 16비트 레지스터 FS, GS추가(EX처럼 임시 세그먼트)
@@ -61,36 +59,11 @@
 
 	[분기(branch instruction)]
 1.	jump_무조건 분기 with SHORT(128byte, use 1 signed bite for displacement), NEAR(3200byte in code segment, use 2 bite for displacement OR anywhere in code segment, use 4byte. WORD JMP NEAR: 2byte, JMP NEAR: 4byte), FAR(different code segment)
-2.	JZ(ZF)&JNZ, JO(OF)&JNO, JS(SF)&JNS, JC(CF)&JNC, JP(PF)&JNP (p.s Parity flag; PF 하위 8비트 수의 홀짝성)
-	
-	if(EAX>=5) //>=의 경우 복잡해짐
-		EBX=1;
-	else 
-		EBX=2;
-	는
-	cmp eax, 5
-	js signon;(SF)
-	jo elseblock;check overflow to minus->plus(OF, SF=0)
-	jmp thenblock(SF=0, OF=0)
-	signon:
-		jo thenblock; sign=1 because of overflow
-	elseblock:
-		mov ebx, 2
-		jmp next
-	thenblock:
-		mov ebx, 1
-	next:
+2.	플래그 기반 분기문_JZ(ZF)&JNZ, JO(OF)&JNO, JS(SF)&JNS, JC(CF)&JNC, JP(PF)&JNP (p.s Parity flag; PF 하위 8비트 수의 홀짝성)
+	//>=의 경우 복잡해짐
 3.	JE(=), JNE(!=), JL||JNGE & JB||JNAE(<), JLE||JNG & JBE||JNZ(<=), JG||JNLE & JA||JNBE(>), JG||JNLE & JA||JNBE(>), JGE||JNL & JAE||JNB(>=) (p.s Greater&Above 초과, Below&less 미만)
 	signed: greater&less, unsigned: above&below
-	
-	cmp eax, 5
-	jge thenblock
-	mov ebx, 2
-	jmp next
-	thenblock:
-		mov ebx, 1
-	next:
-	
+
 	[루프]
 1.	LOOP(ECX!=0, ECX--), LOOPE&LOOPZ(ECX!=0&&ZF, ECX--), LOOPNE,LOOPNX(ECX!=0&&ZF=0, ECX--)
 
@@ -236,8 +209,54 @@
 		call _scanf;return in eax
 		add esp,8;remove arguments
 	...
+	(p.s 간접 주소를 위해 사용되는 lea를 lea ebx, [4*eax+eax]처럼 사용하여 빠른 계산에 사용할수도 있다.(without mul)
 	
 	[재진입 및 재귀 서브프로그램]
 1.	mov word [cs:$+7](실제모드에서 5를 7바이트 앞의 워드로 복사), 5처럼 자기 자신의 코드와 전역데이터를 수정하지 않으면 된다.
 	재진입처럼 여러 작동되는 인스턴스가 있더라도 코드의 한부분만 메모리에 상주한다는 개념은 DLL(Dynamic Link LIbraries)에 아이디어로 사용된다.
 2.	자신이 직접 호출하는 direct call과 서브프로그램 내부에서 호출하는 indirect call이 있다.
+
+[제5장. 배열]
+	[배열]
+1.	스택에 직접적으로 지역 배열 변수를 정의할 수 없어 여전히 ESP로부터 필요한 바이트수를 뺸다. 다만 ESP는 Double word boundary에 놓여야하기에 더블워드가 경계에 놓이게 남은 공간을 배치하거나, 할당을 조금 더하여 4의배수를 맞출 수 있다.
+2.	배열에 원소에 접근하기 위하여 크기를 고려하여 주소를 더해 계산해야한다. 만약 워드배열에 mov ax, [array2+1]처럼 1바이트만 접근해버리면 앙대요..
+3.	향상된 간접주소 지정식은 [base reg+factor*index reg+constant]
+4.	다차원 배열에서 메로리상 어떤 순서로 연속하느냐 행기준_rowwise, 열기준_columnwise
+
+	[배열/문자열 명령(string instruction)]
+1.	ESI(읽기에 사용), EDI(쓰기에 사용)인덱스 레지스터를 사용하여 작업한 후, 자동적으로 인덱스 레지스터를 하나 혹은 모두 값을 1증가시키거나 감소시킨다. 증감의 결정은 Direction Flag가 한다.
+	CLD는 방향플래그를 0으로 하여 인덱스 레지를 증가시킨다. STD는 DF를 1로 하여 인덱스 레지를 감소시킨다.
+2.	문자열 명령 읽기:LODSB_AL=[DS:ESI](1), LODSW_AX=[ES:ESI](2), LODSD_EAX=[DS:ESI](4) 쓰기:STOSB_[ES:EDI]=AL(1), STOSW_[ES:EDI]=AX(2), STOSD_[ES:EDI]=EAX(4) 다 EAX레지스터 사용
+	segment .data
+	array1 dd 1,2,3,4,5,6,7,8,9,10
+	
+	segment .bss
+	array2 resd 10
+	
+	segment .text
+		cld;DF
+		mov esi, array1;for read array1
+		mov edi, array2;for write to array2
+		mov ecx, 10
+	lp:
+		lodsd;read
+		stosd;write
+		;lodsd, stosd can be replaced by MOVSD
+		loop lp
+3.	문자열 이동 명령: MOVSB_byte[ES:EDI]=[DS:ESI](1), MOVSW_word[ES:EDI]=[DS:ESI](2), MOVSD_dword[ES:EDI]=[DS:ESI](4)
+4.	REP 문자열 명령 으로 특정 횟수동안 반복이 가능하다.(LOOP처럼 ECX사용) _REPE&REPZ(조건+ZF일떄), REPNE&REPNZ(조건+ZF=0일떄). ex)repe cmpsb;같을때까지 반복
+	segment .bss
+	array resd 10
+	
+	segment .text
+		cld;set DF
+		mov edi, array
+		mov ecx, 10
+		xor eax, eax
+		rep stosd
+	
+	[비교 문자열 명령]
+1.	CMPSx는 비교, SCASx는 검색이다. CMPSB_cmp [DS:ESI], [ES:EDI](1), CMPSW_cmp [DS:ESI], [ES:EDI](2), CMPSD_cmp [DS:ESI], [ES:EDI](4)
+	SCASB_cmp AL, [ES:ESI](1), SCASW_cmp AX, [ES:EDI](2), SCASD_cmp AX, [ES:EDI](4)   **SCASx는 값을 찾아도 EDI+=4하기에 실제 주소찾으려면 EDI-4로 접근(scasd sub edi, 4)
+[제6장. 부동소수점]
+	
